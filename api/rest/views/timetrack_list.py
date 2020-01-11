@@ -1,11 +1,11 @@
 from rest.serializers.serializers import TimeTrackSerializer
 from rest.imports import status, APIView, Util, serializers, ParseError
+from rest.models.models import TimeTrack
 import base64
 import datetime
 import requests
 
 class TimeTrackList(APIView, Util):
-
     def post(self, request, format=None):
         try:
             data = request.data
@@ -18,25 +18,13 @@ class TimeTrackList(APIView, Util):
             request = self.__fetch_wakatime(apikey, date)
 
             timetrack = {
-                'created_at': '',
+                'date_coding': date,
                 'start': request['start'],
                 'end': request['end'],
                 'timezone': request['timezone']
             }
 
-            ## Buscar en la base de datos si no hay un registro con la fecha de hoy, 
-            # si es asi actualizar ese registro, se debe primero determinar que dia es hoy
-            # y determinar que dia es el del created_at de la base de datos
-
-            # serializer = TimeTrackSerializer(data=request.data)
-            
-            # if serializer.is_valid():
-            #     serializer.save()
-            #     return self.apiResponse(serializer.data, status.HTTP_201_CREATED)
-                
-            # return self.apiResponse({}, status.HTTP_400_BAD_REQUEST, serializer.errors)
-
-            return self.apiResponse(timetrack, status.HTTP_201_CREATED)
+            return self.apiResponse(self.__create_timetrack(date, timetrack), status.HTTP_201_CREATED)
 
         except:
             raise
@@ -44,10 +32,10 @@ class TimeTrackList(APIView, Util):
     def __validate_field(self, apikey, date):
         try:
             if not(apikey):
-                self.throw404('apikey is required')
+                self.throw400('apikey is required')
 
             if not(date):
-                self.throw404('date is required')
+                self.throw400('date is required')
 
         except:
             raise
@@ -57,16 +45,41 @@ class TimeTrackList(APIView, Util):
             datetime.datetime.strptime(date, '%Y-%m-%d')
 
         except ValueError:
-            raise ParseError('Incorrect date format, should be YYYY-MM-DD')
+            self.throw400('Incorrect date format, should be YYYY-MM-DD')
 
     def __fetch_wakatime(self, apikey, date):
-        encoded_bytes = base64.b64encode(apikey.encode("utf-8"))
-        encoded_str = str(encoded_bytes, "utf-8")
+        try:
+            encoded_bytes = base64.b64encode(apikey.encode("utf-8"))
+            encoded_str = str(encoded_bytes, "utf-8")
 
-        params = { 'date': date }
-        headers = { 'Authorization': 'Basic ' + encoded_str }
-        req = requests.get('https://wakatime.com/api/v1/users/current/durations', params=params, headers=headers)
+            params = { 'date': date }
+            headers = { 'Authorization': 'Basic ' + encoded_str }
+            req = requests.get('https://wakatime.com/api/v1/users/current/durations', params=params, headers=headers)
 
-        req.raise_for_status()
+            req.raise_for_status()
 
-        return req.json()
+            return req.json()
+
+        except requests.exceptions.RequestException as e:
+            self.throw400(e)
+
+    def __create_timetrack(self, date, timetrack):
+        try:
+            exist_timetrack = TimeTrack.objects.get(date_coding=date)
+            serializer = TimeTrackSerializer(exist_timetrack, data=timetrack)
+            return self.__validate_serializer(serializer)
+
+        except TimeTrack.DoesNotExist:
+            serializer = TimeTrackSerializer(data=timetrack)
+            return self.__validate_serializer(serializer)
+
+    def __validate_serializer(self, serializer):
+        try:
+            if serializer.is_valid():
+                serializer.save()
+                return serializer.data
+
+            self.throw400(serializer.errors)
+
+        except:
+            raise

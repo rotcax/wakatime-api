@@ -1,11 +1,11 @@
 from rest.imports import models
 
 class TimeTrack(models.Model):
-    
-    created_at = models.DateTimeField(auto_now_add=True)
+    date_coding = models.DateField()
     start = models.DateTimeField()
     end = models.DateTimeField()
     timezone = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['created_at']
+        ordering = ['date_coding']
