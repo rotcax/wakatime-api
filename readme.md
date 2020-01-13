@@ -1,9 +1,9 @@
 # GETTING STARTED WAKATIME API
 
-1) python -m venv envname
-2) envname/Scripts/activate.bat | only windows
-3) pip install django
-4) django-admin startproject namesite
+1) create database in mysql with the name wakatime
+2) python -m venv envname
+3) envname/Scripts/activate.bat | only windows
+4) pip install django
 5) pip install djangorestframework
 6) pip install requests
 7) python manage.py migrate
